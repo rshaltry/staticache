@@ -1,0 +1,341 @@
+#!/usr/bin/php
+<?php
+/**
+
+    StatiCache 0.1
+
+    Static Cached Content Creator
+    Ryan Shaltry, http://ryanshaltry.com
+
+    OVERVIEW
+    Creates static HTML versions of CMS/dynamic content to alleviate
+    application server workload.
+
+    INSTALL
+    1. Place the staticache PHP script into a directory in the $PATH
+    2. Verify staticache script is executable (755)
+    3. Verify the location of the PHP interpreter on line 1 of script
+
+    USAGE
+    $ staticache COMMAND [METHOD]
+
+    The staticache command can be run from any directory, and reads the
+    configuration located at ~/.staticache
+
+    NOTE: Run staticache with no options to view usage information.
+
+    BASIC EXAMPLES
+    $ staticache enable
+    $ staticache disable
+    $ staticache status
+    $ staticache refresh
+
+    PREFERENCES
+    The ~/.staticache file has the following syntax:
+
+    [config]
+    static-dir = /path/to/public/static
+    colors = 1
+    debug = 0
+
+    [urls]
+    url[] = http://local.domain.com/
+    url[] = http://local.domain.com/shop/
+    url[] = http://local.domain.com/shop/accessories.html
+
+    LICENSE
+    This program is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+*/
+
+error_reporting(E_ALL & ~E_NOTICE);
+ini_set('display_errors', 'On');
+
+class Cfg_Default {
+
+    const DEBUG  = 0;
+    const COLORS = 1;
+
+}
+
+class CacheUrl {
+
+    static function write($url) {
+        $ch = curl_init($url . "?1");
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+        $_data = curl_exec($ch);
+        if (!strlen(trim($_data))) {
+            throw new Exception('No data');
+        }
+        curl_close($ch);
+
+        $_contents = sprintf("%s\n<!-- StatiCache: %s -->\n", $_data, @date("YmdHi"));
+        $_url = self::filter($url);
+
+        self::dirCheck($_url);
+
+        $_filename = sprintf('%s%s', cfg::get('static-dir'), parse_url($_url, PHP_URL_PATH));
+        file_put_contents($_filename, $_contents);
+
+        Shell::output(sprintf("Created cache file: %s", $_filename), 'debug');
+        Shell::output(sprintf("Successfully wrote cache for %s...", $url), 'success');
+    }
+
+    static function purge($url) {
+        $_filename = sprintf('%s%s', cfg::get('static-dir'), parse_url($url, PHP_URL_PATH));
+        if(is_file($_filename)) {
+            unlink($_filename);
+            Shell::output(sprintf("Removed cache for %s...", $url), 'success');
+        }
+    }
+
+    static function dirCheck($url) {
+        $_dir = sprintf('%s%s', cfg::get('static-dir'), dirname(parse_url($url, PHP_URL_PATH)));
+        if(!is_dir($_dir)) {
+            mkdir($_dir, 0755, TRUE);
+            Shell::output(sprintf("Created new static subdirectory: %s", $_dir), 'debug');
+        }
+    }
+
+    static function filter($url) {
+        $url .= (preg_match('/.*\/$/', trim($url))) ? 'index.html' : null;
+        return $url;
+    }
+
+}
+
+class Command_Enable extends Command_Abstract {
+
+    var $usage = "- Enable StatiCache\n";
+
+    public function execute($args=array()) {
+        Command_Refresh::execute();
+    }
+
+}
+
+class Command_Disable extends Command_Abstract {
+    var $usage = "- Disable StatiCache\n";
+
+    public function execute($args=array()) {
+        $_urls = Cfg::urls();
+        Shell::output(sprintf('Disabling %d StaticCache content cache(s)...', count($_urls)));
+
+        foreach($_urls as $_url) {
+            CacheUrl::purge($_url);
+        }
+    }
+}
+
+class Command_Refresh extends Command_Abstract {
+    var $usage = "- Refresh StatiCache caches\n";
+
+    static function execute($args=array()) {
+        $_urls = Cfg::urls();
+        Shell::output(sprintf('Refreshing %d StaticCache content cache(s)...', count($_urls)));
+
+        foreach($_urls as $_url) {
+            CacheUrl::write($_url);
+        }
+    }
+
+}
+
+class Command_Status extends Command_Abstract {
+    var $usage = "- Show StatiCache status information\n";
+
+}
+
+class Command_Abstract {
+
+    public function usage() {
+        return ($this->usage) ? $this->usage : 'Command usage information not available.';
+    }
+
+}
+
+class Cfg {
+
+    static protected $_settings;
+    static protected $_urls;
+
+    static function get($setting) {
+        return (isset(self::$_settings[$setting])) ? self::$_settings[$setting] : NULL;
+    }
+
+    static function set($setting, $value) {
+        self::$_settings = (is_array(self::$_settings)) ? self::$_settings : array();
+        self::$_settings[$setting] = $value;
+    }
+
+    static function url($url) {
+        self::$_urls = (is_array(self::$_urls)) ? self::$_urls : array();
+        self::$_urls[] = $url;
+    }
+
+    static function urls() {
+        return (is_array(self::$_urls)) ? self::$_urls : array();
+    }
+
+    static function ini() {
+        $_ds = DIRECTORY_SEPARATOR;
+        if(file_exists($_SERVER['HOME'].$_ds.'.staticache')) {
+            $_cfg = parse_ini_file($_SERVER['HOME'].$_ds.'.staticache', TRUE);
+            foreach($_cfg['config'] as $_key => $_val) {
+                self::set($_key, $_val);
+            }
+            foreach($_cfg['urls']['url'] as $_url) {
+                self::url($_url);
+            }
+        }
+    }
+
+    static function cmd($args) {
+        $_options = array();
+        foreach($_SERVER['argv'] as $_arg) {
+            if(preg_match('/(\-+)(.*)$/', $_arg, $_option) && $_option[2]) {
+                $_options[($_option[2])] = TRUE;
+            }
+        }
+        return $_options;
+    }
+
+}
+
+class Color {
+    const RESET        = "\033[0m";
+    const BLACK        = "\033[0;30m";
+    const RED          = "\033[0;31m";
+    const GREEN        = "\033[0;32m";
+    const BROWN        = "\033[0;33m";
+    const BLUE         = "\033[0;34m";
+    const PURPLE       = "\033[0;35m";
+    const CYAN         = "\033[0;36m";
+    const LIGHT_GRAY   = "\033[0;37m";
+    const GRAY         = "\033[1;30m";
+    const LIGHT_RED    = "\033[1;31m";
+    const LIGHT_GREEN  = "\033[1;32m";
+    const YELLOW       = "\033[1;33m";
+    const LIGHT_BLUE   = "\033[1;34m";
+    const LIGHT_PURPLE = "\033[1;35m";
+    const LIGHT_CYAN   = "\033[1;36m";
+    const WHITE        = "\033[1;37m";
+
+    static function output($str=null, $color='white') {
+        $color = strtoupper($color);
+        return (constant("Color::$color")) ? constant("Color::$color") . $str . constant("Color::RESET") : $str;
+    }
+}
+
+class Shell {
+
+    protected $script;
+    protected $command;
+    protected $args;
+
+    protected $_version = '0.1';
+
+    var $commands = array('enable', 'disable', 'refresh', 'status');
+
+    var $usage = "\nUSAGE:   staticache COMMAND\nEXAMPLE: staticache refresh\n";
+
+    public function run($args) {
+        $this->script  = array_shift($args);
+        $this->command = array_shift($args);
+        $this->args    = $args;
+
+        $ini = Cfg::ini();
+        $cmd = Cfg::cmd($args);
+
+        Cfg::set('debug', array(@$ini['debug'], Cfg_Default::DEBUG));
+        Cfg::set('colors', array((isset($cmd['enable-colors']) || !isset($cmd['disable-colors'])), @$ini['colors'], Cfg_Default::COLORS));
+
+        $this->welcome();
+
+        $_commandClass = 'Command_' . ucwords($this->command);
+
+        if($this->checkScriptInput()) {
+
+        }
+        elseif($this->command && class_exists($_commandClass)) {
+            $_commandObj = new $_commandClass;
+            echo $_commandObj->execute($this->args);
+        }
+        else {
+            Shell::output($this->usage, 'warning');
+            foreach($this->commands as $_command) {
+                Shell::output($_command.':', 'warning');
+                $_commandClass = 'Command_' . ucwords($_command);
+                $_commandClassObj = new $_commandClass;
+                Shell::output($_commandClassObj->usage(), 'default');
+            }
+        }
+    }
+
+    static function output($str=null, $type='default') {
+        $colors = array('default' => 'white',
+                        'success' => 'green',
+                        'error'   => 'red',
+                        'warning' => 'yellow',
+                        'debug' => 'gray');
+
+        if($type != 'debug' || Cfg::get('debug')) {
+            $color = ($colors[$type]) ? $colors[$type] : $colors['default'];
+            $str  .= "\n";
+            echo (Cfg::get('colors')) ? Color::output($str, $color) : $str;
+        }
+    }
+
+    protected function welcome() {
+        Shell::output(sprintf('Welcome to StatiCache v%s', $this->_version), 'success');
+        Shell::output(sprintf('Static Directory: %s', Cfg::get('static-dir')), 'debug');
+    }
+
+    protected function checkScriptInput() {
+        stream_set_blocking(STDIN, 0);
+        $_scriptInput = null;
+        while($line = fgets(STDIN)) {
+            $_scriptInput .= $line;
+        }
+        if($_scriptInput) {
+            $_scriptInput = trim($_scriptInput);
+            if(preg_match('/^\<\?php/', $_scriptInput)) {
+                $_scriptInput = '?>' . $_scriptInput;
+            }
+            echo eval($_scriptInput);
+
+            return true;
+        }
+        return false;
+    }
+
+    protected function getVersionType() {
+        $_ds   = DIRECTORY_SEPARATOR;
+        $_base = Mage::getBaseDir('code');
+
+        return (is_dir($_base.$_ds.'core'.$_ds.'Enterprise')) ? 'enterprise' : 'community';
+    }
+
+    public function exception($exception, $e = null) {
+        Shell::output($exception, 'error');
+        if ($e && Cfg::get('debug')) {
+            var_dump($e);
+        }
+        exit;
+    }
+
+}
+
+$shell = new Shell;
+$shell->run($argv);
