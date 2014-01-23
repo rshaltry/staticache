@@ -286,10 +286,7 @@ class Shell {
 
         $_commandClass = 'Command_' . ucwords($this->command);
 
-        if($this->checkScriptInput()) {
-
-        }
-        elseif($this->command && class_exists($_commandClass)) {
+        if($this->command && class_exists($_commandClass)) {
             $_commandObj = new $_commandClass;
             echo $_commandObj->execute($this->args);
         }
@@ -321,31 +318,6 @@ class Shell {
     protected function welcome() {
         Shell::output(sprintf('Welcome to StatiCache v%s', $this->_version), 'success');
         Shell::output(sprintf('StatiCache Directory: %s', Cfg::get('static-dir')), 'debug');
-    }
-
-    protected function checkScriptInput() {
-        stream_set_blocking(STDIN, 0);
-        $_scriptInput = null;
-        while($line = fgets(STDIN)) {
-            $_scriptInput .= $line;
-        }
-        if($_scriptInput) {
-            $_scriptInput = trim($_scriptInput);
-            if(preg_match('/^\<\?php/', $_scriptInput)) {
-                $_scriptInput = '?>' . $_scriptInput;
-            }
-            echo eval($_scriptInput);
-
-            return true;
-        }
-        return false;
-    }
-
-    protected function getVersionType() {
-        $_ds   = DIRECTORY_SEPARATOR;
-        $_base = Mage::getBaseDir('code');
-
-        return (is_dir($_base.$_ds.'core'.$_ds.'Enterprise')) ? 'enterprise' : 'community';
     }
 
     public function exception($exception, $e = null) {
