@@ -155,6 +155,8 @@ class Command_Refresh extends Command_Abstract {
 class Command_Status extends Command_Abstract {
     var $usage = "- Show StatiCache status information\n";
 
+    // not yet implemented
+
 }
 
 class Command_Abstract {
