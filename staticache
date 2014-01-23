@@ -43,6 +43,25 @@
     url[] = http://local.domain.com/shop/
     url[] = http://local.domain.com/shop/accessories.html
 
+    EXAMPLE APACHE CONFIGURATION
+    The following type of configuration will need to be added to your Apache
+    VirtualHosts(s) in order to use StatiCache capabilities.
+
+    # StatiCache rewrites for file requests
+    RewriteEngine On
+    RewriteCond %{DOCUMENT_ROOT}/static/$0 -f
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteCond %{REQUEST_FILENAME} !-d
+    RewriteCond %{QUERY_STRING} !(.+)
+    RewriteRule ^(.+\.html)$ /static/$0 [L,QSA]
+
+    # StatiCache rewrites for directory requests
+    RewriteCond %{DOCUMENT_ROOT}/static/$0/index.html -f
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteCond %{DOCUMENT_ROOT}/static/$0 -d
+    RewriteCond %{QUERY_STRING} !(.+)
+    RewriteRule ^(.*)$ /static/$0/index.html [L,QSA]
+
     LICENSE
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
