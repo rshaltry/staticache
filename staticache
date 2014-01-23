@@ -149,7 +149,7 @@ class Command_Disable extends Command_Abstract {
 
     public function execute($args=array()) {
         $_urls = Cfg::urls();
-        Shell::output(sprintf('Disabling %d StaticCache content cache(s)...', count($_urls)));
+        Shell::output(sprintf('Disabling %d StatiCache content cache(s)...', count($_urls)));
 
         foreach($_urls as $_url) {
             CacheUrl::purge($_url);
@@ -162,7 +162,7 @@ class Command_Refresh extends Command_Abstract {
 
     static function execute($args=array()) {
         $_urls = Cfg::urls();
-        Shell::output(sprintf('Refreshing %d StaticCache content cache(s)...', count($_urls)));
+        Shell::output(sprintf('Refreshing %d StatiCache content cache(s)...', count($_urls)));
 
         foreach($_urls as $_url) {
             CacheUrl::write($_url);
@@ -320,7 +320,7 @@ class Shell {
 
     protected function welcome() {
         Shell::output(sprintf('Welcome to StatiCache v%s', $this->_version), 'success');
-        Shell::output(sprintf('Static Directory: %s', Cfg::get('static-dir')), 'debug');
+        Shell::output(sprintf('StatiCache Directory: %s', Cfg::get('static-dir')), 'debug');
     }
 
     protected function checkScriptInput() {
