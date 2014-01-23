@@ -17,7 +17,7 @@
     3. Verify the location of the PHP interpreter on line 1 of script
 
     USAGE
-    $ staticache COMMAND [METHOD]
+    $ staticache COMMAND
 
     The staticache command can be run from any directory, and reads the
     configuration located at ~/.staticache
