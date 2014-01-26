@@ -37,6 +37,8 @@
     static-dir = /path/to/public/static
     colors = 1
     debug = 0
+    timeout = 10
+    retries = 3
 
     [urls]
     url[] = http://local.domain.com/
@@ -85,24 +87,46 @@ class Cfg_Default {
 
     const DEBUG  = 0;
     const COLORS = 1;
+    const TIMEOUT = 10;
+    const RETRIES = 3;
 
 }
 
 class CacheUrl {
 
     static function write($url) {
-        $ch = curl_init($url . "?1");
-        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-        $_data = curl_exec($ch);
-        $_status = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-        if (!strlen(trim($_data))) {
-            throw new Exception('No data');
-        }
-        Shell::output(sprintf('HTTP Response: %s', $_status), 'debug');
-        if($_status != '200') {
-            throw new Exception(sprintf('Status %s', $_status));
-        }
-        curl_close($ch);
+        $_timeout = (Cfg::get('timeout') > -1) ? Cfg::get('timeout') : 10;
+        $_limit = (Cfg::get('retries') > 0) ? Cfg::get('retries') : 1;
+        $_msg_fail = 'Request for %s #%d failed, waiting %ds to retry...';
+
+        for($i=1;$i<=$_limit;$i++) {
+            $ch = curl_init($url . "?1");
+
+            curl_setopt($ch, CURLOPT_RETURNTRANSFER, TRUE);
+            curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, $_timeout);
+            curl_setopt($ch, CURLOPT_NOSIGNAL, TRUE);
+
+            $_data   = curl_exec($ch);
+            $_status = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+            Shell::output(sprintf('HTTP Response: %s', $_status), 'debug');
+            curl_close($ch);
+
+            if (!strlen(trim($_data))) {
+                throw new Exception('No data');
+            }
+            if($_status != '200') {
+                if($i == $_limit) {
+                    throw new Exception(sprintf('Status %s, %d attempts', $_status, $_limit));
+                }
+                else {
+                    Shell::output(sprintf($_msg_fail, $url, $i, $_timeout), 'error');
+                    sleep($_timeout);
+                }
+            }
+            else {
+                break;
+            }
+       }
 
         $_contents = sprintf("%s\n<!-- StatiCache: %s -->\n", $_data, @date("YmdHi"));
         $_url = self::filter($url);
@@ -121,6 +145,13 @@ class CacheUrl {
         if(is_file($_filename)) {
             unlink($_filename);
             Shell::output(sprintf('Removed cache for %s...', $url), 'success');
+        }
+        if(is_dir($_filename)) {
+            $_filename .= DIRECTORY_SEPARATOR . 'index.html';
+            if(is_file($_filename)) {
+                unlink($_filename);
+                Shell::output(sprintf('Removed cache for %s...', $url), 'success');
+            }
         }
     }
 
