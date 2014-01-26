@@ -94,8 +94,13 @@ class CacheUrl {
         $ch = curl_init($url . "?1");
         curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
         $_data = curl_exec($ch);
+        $_status = curl_getinfo($ch, CURLINFO_HTTP_CODE);
         if (!strlen(trim($_data))) {
             throw new Exception('No data');
+        }
+        Shell::output(sprintf('HTTP Response: %s', $_status), 'debug');
+        if($_status != '200') {
+            throw new Exception(sprintf('Status %s', $_status));
         }
         curl_close($ch);
 
@@ -107,15 +112,15 @@ class CacheUrl {
         $_filename = sprintf('%s%s', cfg::get('static-dir'), parse_url($_url, PHP_URL_PATH));
         file_put_contents($_filename, $_contents);
 
-        Shell::output(sprintf("Created cache file: %s", $_filename), 'debug');
-        Shell::output(sprintf("Successfully wrote cache for %s...", $url), 'success');
+        Shell::output(sprintf('Created cache file: %s', $_filename), 'debug');
+        Shell::output(sprintf('Successfully wrote cache for %s...', $url), 'success');
     }
 
     static function purge($url) {
         $_filename = sprintf('%s%s', cfg::get('static-dir'), parse_url($url, PHP_URL_PATH));
         if(is_file($_filename)) {
             unlink($_filename);
-            Shell::output(sprintf("Removed cache for %s...", $url), 'success');
+            Shell::output(sprintf('Removed cache for %s...', $url), 'success');
         }
     }
 
@@ -123,7 +128,7 @@ class CacheUrl {
         $_dir = sprintf('%s%s', cfg::get('static-dir'), dirname(parse_url($url, PHP_URL_PATH)));
         if(!is_dir($_dir)) {
             mkdir($_dir, 0755, TRUE);
-            Shell::output(sprintf("Created new static subdirectory: %s", $_dir), 'debug');
+            Shell::output(sprintf('Created new static subdirectory: %s', $_dir), 'debug');
         }
     }
 
@@ -165,7 +170,12 @@ class Command_Refresh extends Command_Abstract {
         Shell::output(sprintf('Refreshing %d StatiCache content cache(s)...', count($_urls)));
 
         foreach($_urls as $_url) {
-            CacheUrl::write($_url);
+            try {
+                CacheUrl::write($_url);
+            }
+            catch(Exception $e) {
+                Shell::output(sprintf('Unable to create content cache for %s (%s)', $_url, $e->getMessage()), 'error');
+            }
         }
     }
 
@@ -220,6 +230,7 @@ class Cfg {
                 self::url($_url);
             }
         }
+        return self::$_settings;
     }
 
     static function cmd($args) {
@@ -279,8 +290,11 @@ class Shell {
         $ini = Cfg::ini();
         $cmd = Cfg::cmd($args);
 
-        Cfg::set('debug', array(@$ini['debug'], Cfg_Default::DEBUG));
-        Cfg::set('colors', array((isset($cmd['enable-colors']) || !isset($cmd['disable-colors'])), @$ini['colors'], Cfg_Default::COLORS));
+        $_debug = (isset($ini['debug'])) ? $ini['debug'] : Cfg_Default::DEBUG;
+        $_colors = (isset($ini['colors'])) ? $ini['colors'] : Cfg_Default::COLORS;
+
+        Cfg::set('debug', $_debug);
+        Cfg::set('colors', $_colors);
 
         $this->welcome();
 
