@@ -51,6 +51,7 @@
 
     # StatiCache rewrites for file requests
     RewriteEngine On
+    RewriteCond %{THE_REQUEST} GET
     RewriteCond %{DOCUMENT_ROOT}/static/$0 -f
     RewriteCond %{REQUEST_FILENAME} !-f
     RewriteCond %{REQUEST_FILENAME} !-d
@@ -58,6 +59,7 @@
     RewriteRule ^(.+\.html)$ /static/$0 [L,QSA]
 
     # StatiCache rewrites for directory requests
+    RewriteCond %{THE_REQUEST} GET
     RewriteCond %{DOCUMENT_ROOT}/static/$0/index.html -f
     RewriteCond %{REQUEST_FILENAME} !-f
     RewriteCond %{DOCUMENT_ROOT}/static/$0 -d
