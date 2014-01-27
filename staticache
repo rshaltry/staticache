@@ -92,12 +92,27 @@ class Cfg_Default {
 
 }
 
+class CacheDir {
+
+    static function create($url) {
+        $_sub = dirname(parse_url(CacheUrl::dirIndex($url), PHP_URL_PATH));
+        $_dir = sprintf('%s%s', Cfg::get('static-dir'), $_sub);
+        if(!is_dir($_dir)) {
+            mkdir($_dir, 0755, TRUE);
+            Shell::output(sprintf('Created new static subdirectory: %s', $_dir), 'debug');
+        }
+    }
+
+}
+
 class CacheUrl {
 
     static function write($url) {
         $_timeout = (Cfg::get('timeout') > -1) ? Cfg::get('timeout') : 10;
         $_limit = (Cfg::get('retries') > 0) ? Cfg::get('retries') : 1;
         $_msg_fail = 'Request for %s #%d failed, waiting %ds to retry...';
+
+        Shell::output(sprintf('Requesting content for %s...', $url));
 
         for($i=1;$i<=$_limit;$i++) {
             $ch = curl_init($url . "?1");
@@ -129,15 +144,14 @@ class CacheUrl {
        }
 
         $_contents = sprintf("%s\n<!-- StatiCache: %s -->\n", $_data, @date("YmdHi"));
-        $_url = self::filter($url);
+        $_filename = self::urlToFile($url);
 
-        self::dirCheck($_url);
+        CacheDir::create($url);
 
-        $_filename = sprintf('%s%s', cfg::get('static-dir'), parse_url($_url, PHP_URL_PATH));
         file_put_contents($_filename, $_contents);
 
         Shell::output(sprintf('Created cache file: %s', $_filename), 'debug');
-        Shell::output(sprintf('Successfully wrote cache for %s...', $url), 'success');
+        Shell::output(sprintf('Successfully wrote cache for %s', $url), 'success');
     }
 
     static function purge($url) {
@@ -155,15 +169,12 @@ class CacheUrl {
         }
     }
 
-    static function dirCheck($url) {
-        $_dir = sprintf('%s%s', cfg::get('static-dir'), dirname(parse_url($url, PHP_URL_PATH)));
-        if(!is_dir($_dir)) {
-            mkdir($_dir, 0755, TRUE);
-            Shell::output(sprintf('Created new static subdirectory: %s', $_dir), 'debug');
-        }
+    static function urlToFile($url) {
+        $_sub = self::dirIndex(preg_replace('/.+\/\/.+?\//', '/', $url));
+        return sprintf('%s%s', Cfg::get('static-dir'), $_sub);
     }
 
-    static function filter($url) {
+    static function dirIndex($url) {
         $url .= (preg_match('/.*\/$/', trim($url))) ? 'index.html' : null;
         return $url;
     }
@@ -215,7 +226,24 @@ class Command_Refresh extends Command_Abstract {
 class Command_Status extends Command_Abstract {
     var $usage = "- Show StatiCache status information\n";
 
-    // not yet implemented
+    static function execute($args=array()) {
+        foreach(Cfg::urls() as $_url) {
+            $_file = CacheUrl::urlToFile($_url);
+            $_filename = str_replace(Cfg::get('static-dir'), null, $_file);
+            Shell::output(sprintf('URL: %s', $_url));
+            if(file_exists($_file)) {
+                $_age = (int) time()-filemtime($_file);
+                $_size = (int) filesize($_file);
+                Shell::output(sprintf('- Cache file found: %s (%ss old, %d bytes)', $_filename, $_age, $_size), 'success');
+
+                if(preg_match('/title>(.*)<\/title/', file_get_contents($_file), $_title)) {
+                    Shell::output(sprintf('- Cache page title: %s', $_title[1]), 'success');
+                }
+            } else {
+                Shell::output('- Cache file not found.', 'error');
+            }
+        }
+    }
 
 }
 
