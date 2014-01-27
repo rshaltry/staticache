@@ -20,7 +20,8 @@
     $ staticache COMMAND
 
     The staticache command can be run from any directory, and reads the
-    configuration located at ~/.staticache
+    configuration located at ~/.staticache by default.  The -f option
+    can [optionally] be specified to point the script to config file.
 
     NOTE: Run staticache with no options to view usage information.
 
@@ -31,7 +32,7 @@
     $ staticache refresh
 
     PREFERENCES
-    The ~/.staticache file has the following syntax:
+    The staticache configuration file has the following syntax:
 
     [config]
     static-dir = /path/to/public/static
@@ -280,10 +281,16 @@ class Cfg {
         return (is_array(self::$_urls)) ? self::$_urls : array();
     }
 
-    static function ini() {
+    static function ini($args) {
         $_ds = DIRECTORY_SEPARATOR;
-        if(file_exists($_SERVER['HOME'].$_ds.'.staticache')) {
-            $_cfg = parse_ini_file($_SERVER['HOME'].$_ds.'.staticache', TRUE);
+        $_cfgPtr = array_search('-f', $args);
+        if($_cfgPtr && $args[($_cfgPtr+1)]) {
+            $_cfgFile = $args[($_cfgPtr+1)];
+        } else {
+            $_cfgFile = $_SERVER['HOME'].$_ds.'.staticache';
+        }
+        if(file_exists($_cfgFile)) {
+            $_cfg = parse_ini_file($_cfgFile, TRUE);
             foreach($_cfg['config'] as $_key => $_val) {
                 self::set($_key, $_val);
             }
@@ -291,17 +298,10 @@ class Cfg {
                 self::url($_url);
             }
         }
-        return self::$_settings;
-    }
-
-    static function cmd($args) {
-        $_options = array();
-        foreach($_SERVER['argv'] as $_arg) {
-            if(preg_match('/(\-+)(.*)$/', $_arg, $_option) && $_option[2]) {
-                $_options[($_option[2])] = TRUE;
-            }
+        else {
+            throw new Exception(sprintf('Unable to load configuration file (%s)', $_cfgFile));
         }
-        return $_options;
+        return self::$_settings;
     }
 
 }
@@ -344,12 +344,11 @@ class Shell {
     var $usage = "\nUSAGE:   staticache COMMAND\nEXAMPLE: staticache refresh\n";
 
     public function run($args) {
+        $ini = Cfg::ini($args);
+
         $this->script  = array_shift($args);
         $this->command = array_shift($args);
         $this->args    = $args;
-
-        $ini = Cfg::ini();
-        $cmd = Cfg::cmd($args);
 
         $_debug = (isset($ini['debug'])) ? $ini['debug'] : Cfg_Default::DEBUG;
         $_colors = (isset($ini['colors'])) ? $ini['colors'] : Cfg_Default::COLORS;
