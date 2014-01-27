@@ -122,6 +122,7 @@ class CacheUrl {
         for($i=1;$i<=$_limit;$i++) {
             $ch = curl_init($url . "?1");
 
+            curl_setopt($ch, CURLOPT_FOLLOWLOCATION, TRUE);
             curl_setopt($ch, CURLOPT_RETURNTRANSFER, TRUE);
             curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, $_timeout);
             curl_setopt($ch, CURLOPT_NOSIGNAL, TRUE);
