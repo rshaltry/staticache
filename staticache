@@ -40,6 +40,8 @@
     debug = 0
     timeout = 10
     retries = 3
+    username = basic_user
+    password = basic_pass
 
     [urls]
     url[] = http://local.domain.com/
@@ -123,6 +125,14 @@ class CacheUrl {
             curl_setopt($ch, CURLOPT_RETURNTRANSFER, TRUE);
             curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, $_timeout);
             curl_setopt($ch, CURLOPT_NOSIGNAL, TRUE);
+
+            $_user = Cfg::get('username');
+            $_pass = Cfg::get('password');
+            if(Cfg::get('username') && Cfg::get('password')) {
+                $_userpass = sprintf('%s:%s', Cfg::get('username'), Cfg::get('password'));
+                curl_setopt($ch, CURLOPT_USERPWD, $_userpass);
+                curl_setopt($ch, CURLOPT_HTTPAUTH, CURLAUTH_BASIC);
+            }
 
             $_data   = curl_exec($ch);
             $_status = curl_getinfo($ch, CURLINFO_HTTP_CODE);
