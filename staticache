@@ -115,23 +115,24 @@ class CacheUrl {
     static function write($url) {
         $_timeout = (Cfg::get('timeout') > -1) ? Cfg::get('timeout') : 10;
         $_limit = (Cfg::get('retries') > 0) ? Cfg::get('retries') : 1;
-        $_url = (file_exists(CacheUrl::urlToFile($url))) ? $url.'?1' : $url;
         $_msg_fail = 'Request for %s #%d failed, waiting %ds to retry...';
 
         Shell::output(sprintf('Requesting content for %s...', $url));
 
         for($i=1;$i<=$_limit;$i++) {
-            $ch = curl_init($_url);
+            $ch = curl_init($url);
 
             curl_setopt($ch, CURLOPT_FOLLOWLOCATION, TRUE);
             curl_setopt($ch, CURLOPT_RETURNTRANSFER, TRUE);
             curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, $_timeout);
             curl_setopt($ch, CURLOPT_NOSIGNAL, TRUE);
+            curl_setopt($ch, CURLOPT_POST, TRUE);
+            curl_setopt($ch, CURLOPT_POSTFIELDS, "staticache=true");
 
-            $_user = Cfg::get('username');
-            $_pass = Cfg::get('password');
-            if(Cfg::get('username') && Cfg::get('password')) {
-                $_userpass = sprintf('%s:%s', Cfg::get('username'), Cfg::get('password'));
+            $_username = Cfg::get('username');
+            $_password = Cfg::get('password');
+            if($_username && $_password) {
+                $_userpass = sprintf('%s:%s', $_username, $_password);
                 curl_setopt($ch, CURLOPT_USERPWD, $_userpass);
                 curl_setopt($ch, CURLOPT_HTTPAUTH, CURLAUTH_BASIC);
             }
