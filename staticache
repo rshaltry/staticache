@@ -2,7 +2,7 @@
 <?php
 /**
 
-    StatiCache 0.1
+    StatiCache 0.2
 
     Static Cached Content Creator
     Ryan Shaltry, http://ryanshaltry.com
@@ -40,8 +40,8 @@
     debug = 0
     timeout = 10
     retries = 3
-    username = basic_user
-    password = basic_pass
+    ; username = basic_user
+    ; password = basic_pass
 
     [urls]
     url[] = http://local.domain.com/
@@ -350,7 +350,7 @@ class Shell {
     protected $command;
     protected $args;
 
-    protected $_version = '0.1';
+    protected $_version = '0.2';
 
     var $commands = array('enable', 'disable', 'refresh', 'status');
 
