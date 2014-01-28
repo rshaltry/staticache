@@ -115,12 +115,13 @@ class CacheUrl {
     static function write($url) {
         $_timeout = (Cfg::get('timeout') > -1) ? Cfg::get('timeout') : 10;
         $_limit = (Cfg::get('retries') > 0) ? Cfg::get('retries') : 1;
+        $_url = (file_exists(CacheUrl::urlToFile($url))) ? $url.'?1' : $url;
         $_msg_fail = 'Request for %s #%d failed, waiting %ds to retry...';
 
         Shell::output(sprintf('Requesting content for %s...', $url));
 
         for($i=1;$i<=$_limit;$i++) {
-            $ch = curl_init($url . "?1");
+            $ch = curl_init($_url);
 
             curl_setopt($ch, CURLOPT_FOLLOWLOCATION, TRUE);
             curl_setopt($ch, CURLOPT_RETURNTRANSFER, TRUE);
