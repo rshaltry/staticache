@@ -186,7 +186,9 @@ class CacheUrl {
     }
 
     static function urlToFile($url) {
-        $_sub = self::dirIndex(preg_replace('/.+\/\/.+?\//', '/', $url));
+        $_search = array('/.+\/\/.+?\//', '/[\?\=]/');
+        $_replace = array('/', '-');
+        $_sub = self::dirIndex(preg_replace($_search, $_replace, $url));
         return sprintf('%s%s', Cfg::get('static-dir'), $_sub);
     }
 
@@ -259,6 +261,9 @@ class Command_Status extends Command_Abstract {
                 Shell::output('- Cache file not found.', 'error');
             }
         }
+        Shell::output(null);
+        Cfg::rewrites();
+        Shell::output(null);
     }
 
 }
@@ -315,6 +320,24 @@ class Cfg {
             throw new Exception(sprintf('Unable to load configuration file (%s)', $_cfgFile));
         }
         return self::$_settings;
+    }
+
+    static function rewrites() {
+        $_urls = self::$_urls;
+        Shell::output('THE FOLLOWING APACHE REWRITES MUST BE SETUP, IN .htaccess OR VHOST CONFIG:', 'warning');
+        Shell::output('-----------------------------------------------------------------------------------','warning');
+        foreach($_urls as $_url) {
+            if(preg_match('/\?(.+)$/', $_url, $_qs)) {
+                $_path = trim(parse_url($_url, PHP_URL_PATH), '/');
+                $_file = preg_replace('/[\?]/', '-', $_qs);
+
+                Shell::output('RewriteCond %{QUERY_STRING} ^' . $_qs[1] . '$');
+
+                $_qs = preg_replace('/=/', '-', $_qs[1]);
+                Shell::output('RewriteCond %{DOCUMENT_ROOT}/static/'.$_path.'-'.$_qs.' -f');
+                Shell::output(sprintf('RewriteRule ^%s$ /static/%s-%s [L,QSA]', $_path, $_path, $_qs));
+            }
+        }
     }
 
 }
