@@ -54,6 +54,7 @@
 
     # StatiCache rewrites for file requests
     RewriteEngine On
+    RewriteCond %{HTTPS} off
     RewriteCond %{THE_REQUEST} GET
     RewriteCond %{DOCUMENT_ROOT}/static/$0 -f
     RewriteCond %{REQUEST_FILENAME} !-f
@@ -62,6 +63,7 @@
     RewriteRule ^(.+\.html)$ /static/$0 [L,QSA]
 
     # StatiCache rewrites for directory requests
+    RewriteCond %{HTTPS} off
     RewriteCond %{THE_REQUEST} GET
     RewriteCond %{DOCUMENT_ROOT}/static/$0/index.html -f
     RewriteCond %{REQUEST_FILENAME} !-f
@@ -232,6 +234,7 @@ class Command_Refresh extends Command_Abstract {
         foreach($_urls as $_url) {
             try {
                 CacheUrl::write($_url);
+                Command_Rewrites::warn();
             }
             catch(Exception $e) {
                 Shell::output(sprintf('Unable to create content cache for %s (%s)', $_url, $e->getMessage()), 'error');
@@ -239,6 +242,22 @@ class Command_Refresh extends Command_Abstract {
         }
     }
 
+}
+
+class Command_Rewrites extends Command_Abstract {
+    var $usage = "- Generate StatiCache query string rewrites\n";
+
+    static function execute($args=array()) {
+        Shell::output(null);
+        Cfg::rewrites();
+        Shell::output(null);
+    }
+
+    static function warn($url) {
+        if(preg_match('/\?(.+)$/', $_url)) {
+            Shell::output("- NOTE: This URL requires a specific RewriteRule directive; use 'staticache rewrites' to generate.", 'warning');
+        }
+    }
 }
 
 class Command_Status extends Command_Abstract {
@@ -261,9 +280,6 @@ class Command_Status extends Command_Abstract {
                 Shell::output('- Cache file not found.', 'error');
             }
         }
-        Shell::output(null);
-        Cfg::rewrites();
-        Shell::output(null);
     }
 
 }
@@ -324,13 +340,14 @@ class Cfg {
 
     static function rewrites() {
         $_urls = self::$_urls;
-        Shell::output('THE FOLLOWING APACHE REWRITES MUST BE SETUP, IN .htaccess OR VHOST CONFIG:', 'warning');
-        Shell::output('-----------------------------------------------------------------------------------','warning');
+        Shell::output('THE FOLLOWING APACHE REWRITES MUST BE SETUP, IN .htaccess OR VHOST CONFIG:');
+        Shell::output('-----------------------------------------------------------------------------------');
         foreach($_urls as $_url) {
             if(preg_match('/\?(.+)$/', $_url, $_qs)) {
                 $_path = trim(parse_url($_url, PHP_URL_PATH), '/');
                 $_file = preg_replace('/[\?]/', '-', $_qs);
 
+                Shell::output('RewriteCond %{HTTPS} off');
                 Shell::output('RewriteCond %{QUERY_STRING} ^' . $_qs[1] . '$');
 
                 $_qs = preg_replace('/=/', '-', $_qs[1]);
@@ -375,7 +392,7 @@ class Shell {
 
     protected $_version = '0.2';
 
-    var $commands = array('enable', 'disable', 'refresh', 'status');
+    var $commands = array('enable', 'disable', 'refresh', 'rewrites', 'status');
 
     var $usage = "\nUSAGE:   staticache COMMAND\nEXAMPLE: staticache refresh\n";
 
